@@ -37,9 +37,11 @@ public class FeatureExtractor {
         return encoded_feature;        
     }
 
-    public int[] extractFeature(final Sentence sentence, final Token prd, final Token arg)
+    public int[] extractFeature(final Sentence sentence, final Token prd, final Token arg, final String direction)
     {
-        final String[] feature = instantiateACFeature(sentence, prd, arg);
+        if (arg == null) return null;
+        
+        final String[] feature = instantiateACFeature(sentence, prd, arg, direction);
         final int[] encoded_feature = encodeFeature(feature);
         return encoded_feature;        
     }
@@ -81,36 +83,105 @@ public class FeatureExtractor {
         feature[k++] = "ChildDepSet_" + childdepset;        
         feature[k++] = "ChildPOSSet_" + childposset;                
         
-        feature = conjoin(feature, prd.cpos);
+//        feature = conjoin(feature, prd.cpos);
         
         return feature;
     }
     
-    public String[] instantiateACFeature(final Sentence sentence, final Token arg, final Token prd)
+    public String[] instantiateACFeature(final Sentence sentence, final Token prd, final Token arg, final String direction)
     {
-        k = 0;        
-        String[] feature = new String[12];
+        k = 0;
+        int phi_num = 27;
 
         final ArrayList<Token> tokens = sentence.tokens;
-        final Token pparent = tokens.get(arg.phead);            
         
+        Token arg2 = null;
+        Token arg3 = null;
+        if (arg.id-1 > 0) {
+            arg2 = tokens.get(arg.id-1);
+            phi_num += 7;
+        }
+        if (arg.id+1 < tokens.size()) {
+            arg3 = tokens.get(arg.id+1);
+            phi_num += 7;
+
+        }
+
+        String[] feature = new String[phi_num];
+        
+        final int prd_i = match(sentence.preds, prd.id);
+        final String pos = prd.cpos;        
+        final Token pparent = tokens.get(prd.phead);            
+//        final String sense = prd.plemma + prd.pred;        
+        final String subcat = prd.subcat;        
+        final String childdepset = prd.childdepset;        
+        final String childposset = prd.childposset;
+                        
+        final String dep_r_path = sentence.dep_r_path[prd_i][arg.id];        
+        final String dep_pos_path = sentence.dep_pos_path[prd_i][arg.id];        
+        final String position = position(prd.id, arg.id);
+
+
+        feature[k++] = "PredW_" + prd.form;        
+        feature[k++] = "PredPOS_" + prd.ppos;        
+        feature[k++] = "PredLemma_" + prd.plemma;        
+//        feature[k++] = "PredLemmaSense_" + sense;        
+        feature[k++] = "PredParentW_" + pparent.form;        
+        feature[k++] = "PredParentPOS_" + pparent.ppos;        
+        feature[k++] = "DepSubCat_" + subcat;        
+        feature[k++] = "ChildDepSet_" + childdepset;        
+        feature[k++] = "ChildPOSSet_" + childposset;                
+        feature[k++] = "ArdW_" + arg.form;        
+
         feature[k++] = "ArgPOS_" + arg.ppos;        
-        feature[k++] = "ArgLemma_" + arg.plemma;        
-        feature[k++] = "ArgParentW_" + pparent.plemma;        
-        feature[k++] = "ArgParentPOS_" + pparent.ppos;        
-        feature[k++] = "ArgLchildPOS_" + arg.leftmostpos;        
-        feature[k++] = "ArgLchildW_" + arg.leftmostw;        
-        feature[k++] = "ArgRchildPOS_" + arg.rightmostpos;        
-        feature[k++] = "ArgRchildW_" + arg.rightmostw;
-        feature[k++] = "ArgLsibPOS_" + arg.leftsiblingpos;
-        feature[k++] = "ArgLsibW_" + arg.leftsiblingw;
+        feature[k++] = "ArgDeprel_" + arg.pdeprel;        
+        feature[k++] = "APW_" + arg.form + prd.form;        
+        feature[k++] = "APF_" + arg.plemma + prd.plemma;        
+        feature[k++] = "APPL_" + arg.ppos + prd.plemma;        
+//        feature[k++] = "APPS_" + arg.plemma + sense;        
+        feature[k++] = "DepRelPath_" + dep_r_path;        
+        feature[k++] = "POSPath_" + dep_pos_path;        
+        feature[k++] = "Position_" +  position;        
+        feature[k++] = "Position+DepRelPath" +  position + dep_r_path;        
         
-        feature[k++] = "ArgRsibPOS_" + arg.rightsiblingpos;
-        feature[k++] = "ArgRsibW_" + arg.rightsiblingw;
+        feature[k++] = "Position+ArgW" +  position + arg.form;        
+//        feature[k++] = "ArgPOS+PredLemmaSense" +  arg.ppos + sense;        
+//        feature[k++] = "Position+PredLemmaSense" +  position + sense;        
+//        feature[k++] = "ArgW+PredLemmaSense" +  arg.form + sense;        
+        feature[k++] = "ArgPOS+ArgW" +  arg.ppos + arg.form;        
+//        feature[k++] = "POSPath+PredLemmaSense" +  dep_pos_path + sense;        
+        feature[k++] = "Position+ArgPOS" +  position + arg.ppos;
+
+        if (arg2 != null) {
+            feature[k++] = "ArdW2_" + arg2.form;        
+            feature[k++] = "ArgPOS2_" + arg2.ppos;        
+            feature[k++] = "ArgDeprel2_" + arg2.pdeprel;        
+            feature[k++] = "APW2_" + arg2.form + prd.form;        
+            feature[k++] = "APF2_" + arg2.plemma + prd.plemma;        
+            feature[k++] = "APPL2_" + arg2.ppos + prd.plemma;        
+            feature[k++] = "ArgPOS+ArgW2" +  arg2.ppos + arg2.form;        
+        }
         
-        feature = conjoin(feature, arg.cpos);
+        if (arg3 != null) {
+            feature[k++] = "ArdW3_" + arg3.form;        
+            feature[k++] = "ArgPOS3_" + arg3.ppos;        
+            feature[k++] = "ArgDeprel3_" + arg3.pdeprel;        
+            feature[k++] = "APW3_" + arg3.form + prd.form;        
+            feature[k++] = "APF3_" + arg3.plemma + prd.plemma;        
+            feature[k++] = "APPL3_" + arg3.ppos + prd.plemma;        
+            feature[k++] = "ArgPOS+ArgW3" +  arg3.ppos + arg3.form;        
+        }
+        
+        feature = conjoin(feature, pos);
+        feature = conjoin(feature, direction);
         
         return feature;
+    }
+    
+    private int match(final int[] preds, final int prd_id)
+    {
+        for (int i=0; i<preds.length; ++i) if (preds[i] == prd_id) return i;
+        return -1;
     }
     
     public String[] instantiateAIFeature(final Sentence sentence, final int prd_i, final int arg_i)

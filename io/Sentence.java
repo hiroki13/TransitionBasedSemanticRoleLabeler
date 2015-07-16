@@ -183,72 +183,17 @@ public class Sentence {
         }
     }
     
-    public void setMaxArgLength()
-    {
-        for (int i=0; i<preds.length; ++i) {
-            final Token pred = tokens.get(preds[i]);
-            
-            if (pred.arguments.size() > max_arg_length)
-                max_arg_length = pred.arguments.size();
-        }
-    }
-    
-    
-    public void setArguments()
-    {
-        for (int i=0; i<this.preds.length; ++i) {    
-            Token pred = tokens.get(preds[i]);
-            
-            for (int j=1; j<this.size(); ++j) {
-                Token arg = tokens.get(j);
-                if (arg.apred[i] > -1) pred.o_arguments.add(arg.id);
-            }
-        }
-        
-    }
-    
     public void setOracleGraph()
     {
-        o_graph = new int[this.preds.length][max_arg_length];
+        o_graph = new int[preds.length][tokens.size()];
 
-        for (int i=0; i<this.preds.length; ++i) {
-            final Token pred = this.tokens.get(this.preds[i]);
-            final int[] tmp_graph = o_graph[i];
-            final ArrayList<Integer> arguments = pred.arguments;
-            final int arg_length = arguments.size();
-
-            for (int j=0; j<max_arg_length; ++j) {
-                if (j < arg_length) {
-                    final int arg_i = arguments.get(j);
-                    final Token arg = tokens.get(arg_i);
-                    tmp_graph[j] = arg.apred[i];
-                }
-                else
-                    tmp_graph[j] = -1;
-            }
-        }
-    }
-
-    public void setOraclePropGraph()
-    {
-        o_graph = new int[this.preds.length][RoleDict.rolearray.size()];
-
-        for (int prd_i=0; prd_i<this.preds.length; ++prd_i) {
-            final Token pred = this.tokens.get(this.preds[prd_i]);
+        for (int prd_i=0; prd_i<preds.length; ++prd_i) {
             final int[] tmp_graph = o_graph[prd_i];
-            
-            for (int i=0; i<tmp_graph.length; ++i) tmp_graph[i] = -1;
-            
-            final ArrayList<Integer> arguments = pred.arguments;
-            final int arg_length = arguments.size();
 
-            for (int i=0; i<arg_length; ++i) {            
-                final int arg_i = arguments.get(i);                                    
-                final Token arg = tokens.get(arg_i);                
-                final int role = arg.apred[prd_i];                                    
-
-//                if (role > -1) tmp_graph[role] = arg_i;                
-                if (role > -1) tmp_graph[role] = i;                
+            for (int arg_i=0; arg_i<tokens.size(); ++arg_i) {
+                final Token arg = tokens.get(arg_i);
+                if (arg.id == 0) tmp_graph[arg_i] = -1;
+                else tmp_graph[arg_i] = arg.apred[prd_i];
             }
         }
     }

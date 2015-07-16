@@ -38,8 +38,8 @@ public class Reader {
                     sentence.setDeps();
 
                     if (!test) {
-                        sentence.setArguments();
                         sentence.setFrameDict();
+                        sentence.setOracleGraph();
                     }
                     
                     sentenceList.add(sentence);
@@ -72,7 +72,6 @@ public class Reader {
                 
                 if (line.isEmpty()) {
                     sentence.setPredicates();
-                    sentence.setArguments();
 //                    sentence.setChildren();
 //                    sentence.setFrameDict();
                     

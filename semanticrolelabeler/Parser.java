@@ -20,7 +20,7 @@ public class Parser {
     public Classifier classifier;
     public FeatureExtractor feature_extracter;
     public Random rnd;
-    public int weight_length, restart, prune = -1;
+    public int weight_length, label_size, prune = -1;
     public float correct, total, p_total, r_total;
     public long time;
 

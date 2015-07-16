@@ -53,7 +53,7 @@ public class Mode {
         output = optionparser.isExsist("output");
         model = optionparser.isExsist("model");
         RoleDict.core = optionparser.isExsist("core");
-        weight_length = optionparser.getInt("weight", 1000);
+        weight_length = optionparser.getInt("weight", 10000);
         iteration = optionparser.getInt("iter", 10);
         prune = optionparser.getInt("prune", 100000);
     }    
@@ -68,8 +68,9 @@ public class Mode {
         if ("train".equals(modeselect)) {
             System.out.println("\nFiles Loaded...");
 
-            if (RoleDict.core && !ac) RoleDict.add("NULL");
+            RoleDict.add("NULL");
             
+            final ArrayList a = RoleDict.roledict;
             trainsentence = Reader.read(trainfile, false);
             testsentence = Reader.read(testfile, true);
             evalsentence = Reader.readEval(evalfile);
@@ -106,17 +107,18 @@ public class Mode {
         final Trainer trainer = new Trainer(trainsentence, weight_length, prune);
         trainer.setOracleState();
 
+        iteration = 50;
         for (int i=0; i<iteration; ++i) {        
             System.out.println("\nIteration: " + (i+1));            
             trainer.train();            
             System.out.println();            
-
+/*
             AccuracyChecker checker = new AccuracyChecker();
             checker.test(testsentence, evalsentence, trainer.parser);
 
             if (i==iteration-1 && output) checker.outputAC(testsentence, outfile);                                    
 
-            checker = null;
+            checker = null;*/
         }        
     }
     

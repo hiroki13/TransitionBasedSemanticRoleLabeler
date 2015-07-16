@@ -70,6 +70,18 @@ public class State {
         else ArcR();
     }
     
+    public void transitionL(final int action)
+    {
+        if (action == 0) noArcL();
+        else ArcL();
+    }
+    
+    public void transitionR(final int action)
+    {
+        if (action == 0) noArcR();
+        else ArcR();
+    }
+    
     private void noArcL()
     {
         list2.add(list1.remove(list1.size()-1));

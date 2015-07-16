@@ -6,6 +6,7 @@
 package semanticrolelabeler;
 
 import feature.FeatureExtractor;
+import io.RoleDict;
 import io.Sentence;
 import io.Token;
 import java.util.ArrayList;
@@ -23,40 +24,62 @@ public class BaseParser extends Parser{
         this.weight_length = weight_length;
         this.feature_extracter = new FeatureExtractor(weight_length);
         this.prune = prune;
+        this.label_size = RoleDict.rolearray.size();
     }
     
     @Override
     public void train(final ArrayList<Sentence> sentencelist)
     {
         correct = 0.0f;
-        total = 0.0f;
+        r_total = 0.0f;
+        p_total = 0.0f;
 
         for (int i=0; i<sentencelist.size(); ++i) {
             final Sentence sentence = sentencelist.get(i);
+            
+            if (sentence.preds.length == 0) continue;
 
-            if (feature_extracter.g_cache.size() < i+1)                    
-                feature_extracter.g_cache.add(new String[sentence.preds.length][sentence.size()][]);
+//            if (feature_extracter.g_cache.size() < i+1)                    
+//                feature_extracter.g_cache.add(new String[sentence.preds.length][sentence.size()][]);
 
             if (i%1000 == 0 && i != 0) System.out.print(String.format("%d ", i));                                
 
             final State state = decode(sentence);
-            update(state, sentence.o_state);
+            update(sentence.o_state, state);
+            check(sentence.o_state, state);
 
             if (i==prune) break;
                         
         }
+
+        final float recall = correct/r_total;
+        final float precision = correct/p_total;
+        final float f = (2*recall*precision) / (recall+precision);
         
-        System.out.println("\tCorrect: " + correct);                        
-        System.out.println("\tTotal: " + total);                        
-        System.out.println("\tAccuracy: " + correct/total);                        
+        System.out.println("\tF1: " + f + "\tPrecision: " + precision + "\tRecall: " + recall);                        
+    }
+    
+    private void check(final State o_state, final State state)
+    {
+        for (int i=0; i<o_state.A.length; ++i) {
+            final int[] tmp_o_args = o_state.A[i];
+            final int[] tmp_args = state.A[i];
+
+            for (int j=0; j<tmp_o_args.length; ++j) {
+                if (tmp_o_args[j] == tmp_args[j] && tmp_o_args[j] != 0) correct += 1;
+                if (tmp_o_args[j] != 0) r_total += 1;
+                if (tmp_args[j] != 0) p_total += 1;
+            }
+        }
     }
     
     private State decode(final Sentence sentence)
     {
         final State state = new State(sentence);
+        final int[] prd_ids = sentence.preds;
 
         for (int prd_i=0; prd_i<sentence.preds.length; ++prd_i) {
-            final Token prd = state.tokens.get(prd_i);
+            final Token prd = state.tokens.get(prd_ids[prd_i]);
             
             state.initiateList(prd.id, prd_i);
             transition(state, prd);
@@ -64,41 +87,39 @@ public class BaseParser extends Parser{
         
         return state;
     }
-    
+
     public void transition(final State state, final Token prd)
     {
-        while (state.list1.size()>0 || state.list4.size()>0) {        
-            final Token arg1 = state.tokens.get(state.list1.get(state.list1.size()-1));            
-            final Token arg2 = state.tokens.get(state.list4.get(0));                
+        // 0:noArcL, 1:ArcL, 2:noArcR, 3:ArcR
+        while (!state.list1.isEmpty()) {
+            final Token arg = state.tokens.get(state.list1.get(state.list1.size()-1));
+            final int[] feature = extractFeature(state.sentence, prd, arg, "L");                                    
+            final int best_action = bestAction(feature);
 
-            final int[] p_feature = extractFeature(state.sentence, prd);            
-            final int[] a1_feature = extractFeature(state.sentence, arg1, prd);            
-            final int[] a2_feature = extractFeature(state.sentence, arg2, prd);
-                        
-            final int[] features1 = concatinateFeatures(p_feature, a1_feature);            
-            final int[] features2 = concatinateFeatures(p_feature, a2_feature);
-            
-            final int best_action = bestAction(features1, features2);
+            state.actions.add(best_action);            
+            state.features.add(feature);
+            state.transitionL(best_action);            
+        }
+
+        while (!state.list4.isEmpty()) {
+            final Token arg = state.tokens.get(state.list4.get(0));                
+            final int[] feature = extractFeature(state.sentence, prd, arg, "R");
+            final int best_action = bestAction(feature);
 
             state.actions.add(best_action);
-            
-            if (best_action < 2) state.features.add(features1);
-            else state.features.add(features2);
-
-            state.transition(best_action);            
+            state.features.add(feature);
+            state.transitionR(best_action);            
         }
+    
     }
     
-    private int bestAction(final int[] features1, final int[] features2)
+    private int bestAction(final int[] features)
     {
         int best_action = -1;
         float best_score = -1000000.0f;
         
-        for (int i=0; i<4; ++i) {
-            final float score;
-            
-            if (i < 2) score = calcScore(features1, i);
-            else score = calcScore(features2, i);
+        for (int i=0; i<label_size; ++i) {
+            final float score = calcScore(features, i);
             
             if (score > best_score) {
                 best_score = score;
@@ -121,7 +142,7 @@ public class BaseParser extends Parser{
         System.arraycopy(feature2, 0, features, feature1.length, feature2.length);
         return features;
     }
-        
+/*        
     @Override
     public void test(final ArrayList<Sentence> testsentencelist)
     {
@@ -160,7 +181,7 @@ public class BaseParser extends Parser{
         }
 
     }    
-
+*/
     
     @Override
     public void eval(final ArrayList<Sentence> testsentencelist, final ArrayList<Sentence> evalsentencelist)
@@ -229,19 +250,9 @@ public class BaseParser extends Parser{
         return feature_extracter.extractFeature(sentence, prd);
     }
             
-    public int[] extractFeature(final Sentence sentence, final Token arg, final Token prd)
+    public int[] extractFeature(final Sentence sentence, final Token prd, final Token arg, final String direction)
     {
-        return feature_extracter.extractFeature(sentence, arg, prd);
-    }
-            
-    public String[] instantiateFeature(final Sentence sentence, final Token prd)
-    {
-        return feature_extracter.instantiateACFeature(sentence, prd);
-    }
-            
-    public String[] instantiateFeature(final Sentence sentence, final Token arg, final Token prd)
-    {
-        return feature_extracter.instantiateACFeature(sentence, arg, prd);
+        return feature_extracter.extractFeature(sentence, prd, arg, direction);
     }
             
     public boolean checkArguments(final Sentence sentence)
@@ -263,70 +274,47 @@ public class BaseParser extends Parser{
             final Token prd = o_state.tokens.get(sentence.preds[prd_i]);
             
             o_state.initiateList(prd.id, prd_i);
-            oracleTransition(o_state, prd);
+            oracleTransition(sentence.o_graph[prd_i], o_state, prd);
         }        
         
         return o_state;
     }
-    
-    private void oracleTransition(final State o_state, final Token prd)
+
+    private void oracleTransition(final int[] oracle_args, final State o_state, final Token prd)
     {
-        final ArrayList<Integer> o_arguments = prd.o_arguments;
-        
-        while (!o_state.list1.isEmpty() || !o_state.list4.isEmpty()) {
-            boolean l1 = true;
-            boolean l4 = true;
-            if (o_state.list1.isEmpty()) l1 = false;
-            if (o_state.list4.isEmpty()) l4 = false;
-
-            final int[] p_feature = extractFeature(o_state.sentence, prd);
-            final int[] a_feature;
-            final int action;
-
-            if (l1 && l4) {
-                final Token arg1 = o_state.tokens.get(o_state.list1.get(o_state.list1.size()-1));
-                final Token arg2 = o_state.tokens.get(o_state.list4.get(0));
-
-                if (o_arguments.contains(arg1.id)) {
-                    a_feature = extractFeature(o_state.sentence, arg1, prd);            
-                    action = 1;
-                }
-                else if (o_arguments.contains(arg2.id)) {
-                    a_feature = extractFeature(o_state.sentence, arg2, prd);            
-                    action = 3;                
-                }
-                else if (l1) {
-                    a_feature = extractFeature(o_state.sentence, arg1, prd);            
-                    action = 0;                                
-                }
-                else {
-                    a_feature = extractFeature(o_state.sentence, arg2, prd);            
-                    action = 2;                                                
-                }
-            }
-            else if (l1 && !l4) {
-                final Token arg1 = o_state.tokens.get(o_state.list1.get(o_state.list1.size()-1));
-                a_feature = extractFeature(o_state.sentence, arg1, prd);            
-
-                if (o_arguments.contains(arg1.id)) action = 1;
-                else action = 0;                                
-            }
-            else {
-                final Token arg2 = o_state.tokens.get(o_state.list4.get(0));
-                a_feature = extractFeature(o_state.sentence, arg2, prd);            
-
-                if (o_arguments.contains(arg2.id)) action = 3;
-                else action = 2;
-            }
+        while (!o_state.list1.isEmpty()) {
+            final Token arg = o_state.tokens.get(o_state.list1.get(o_state.list1.size()-1));
+            final int[] feature = extractFeature(o_state.sentence, prd, arg, "L");                                    
+            final int action = oracle_args[arg.id];
             
-            o_state.features.add(concatinateFeatures(p_feature, a_feature));            
-            o_state.actions.add(action);                            
-            o_state.transition(action);            
+            o_state.actions.add(action);            
+            o_state.features.add(feature);
+            o_state.transitionL(action);            
+        }
+
+        while (!o_state.list4.isEmpty()) {
+            final Token arg = o_state.tokens.get(o_state.list4.get(0));                
+            final int[] feature = extractFeature(o_state.sentence, prd, arg, "R");
+            final int action = oracle_args[arg.id];
+
+            o_state.actions.add(action);
+            o_state.features.add(feature);
+            o_state.transitionR(action);            
         }
     }
     
-    public void update(final State state, final State o_state)
+    public void update(final State o_state, final State state)
     {
+        for (int i=0; i<o_state.actions.size(); ++i) {
+            final int o_label = o_state.actions.get(i);
+            final int label = state.actions.get(i);
+            final int[] o_feature = o_state.features.get(i);
+            final int[] feature = state.features.get(i);
+            
+            if (o_label != label)
+                classifier.updateWeights(o_label, label, o_feature, feature);
+        }
         
+        classifier.t += 1;
     }
 }

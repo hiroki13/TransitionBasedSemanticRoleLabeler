@@ -23,5 +23,7 @@ public class Classifier {
     }
     
     public void updateWeights(final int o_label, final int p_label, final int[] feature){}
+
+    public void updateWeights(final int o_label, final int p_label, final int[] o_feature, final int[] feature){}
     
 }

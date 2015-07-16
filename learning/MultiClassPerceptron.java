@@ -39,4 +39,20 @@ public class MultiClassPerceptron extends Classifier{
         this.t += 1.0f;
     }
         
+    @Override
+    public void updateWeights(final int o_label, final int p_label, final int[] o_feature, final int[] feature)
+    {
+        for(int i=0; i<o_feature.length; ++i){
+            final int phi_id = o_feature[i];
+            weight[o_label][phi_id] += 1.0f;
+            aweight[o_label][phi_id] += this.t;
+        }
+        
+        for(int i=0; i<feature.length; ++i){
+            final int phi_id = feature[i];
+            weight[p_label][phi_id] -= 1.0f;
+            aweight[p_label][phi_id] -= this.t;
+        }
+    }
+        
 }

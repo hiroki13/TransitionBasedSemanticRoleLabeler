@@ -90,13 +90,13 @@ public final class Token {
         if (!test) {
             for (int i=0; i<apred.length; ++i) {
                 if (!"_".equals(line[14+i])) apred[i] = RoleDict.addAndGet(line[14+i]);
-                else apred[i] = -1;
+                else apred[i] = 0;
             }
         }
         else {
             for (int i=0; i<apred.length; ++i) {
                 if ("1".equals(line[14+i])) apred[i] = 1000;
-                else apred[i] = -1;
+                else apred[i] = 0;
             }
         }
         

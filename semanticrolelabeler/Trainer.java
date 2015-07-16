@@ -22,7 +22,7 @@ final public class Trainer {
     public Trainer(final ArrayList<Sentence> sentencelist, final int weight_length, final int prune)
     {
         this.sentencelist = sentencelist;
-        this.parser = new BaseParser(new MultiClassPerceptron(RoleDict.roledict.size(), weight_length), weight_length, prune);
+        this.parser = new BaseParser(new MultiClassPerceptron(RoleDict.rolearray.size(), weight_length), weight_length, prune);
     }
     
     public void train()

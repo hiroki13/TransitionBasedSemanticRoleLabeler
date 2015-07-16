@@ -8,6 +8,7 @@ package io;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.TreeSet;
+import semanticrolelabeler.State;
 
 /**
  *
@@ -25,6 +26,8 @@ public class Sentence {
     public String[][] dep_r_path;
     
     public int max_arg_length;
+    
+    public State o_state;
     
     public Sentence(int index)
     {
@@ -198,7 +201,7 @@ public class Sentence {
             
             for (int j=1; j<this.size(); ++j) {
                 Token arg = tokens.get(j);
-                if (arg.apred[i] > -1) pred.arguments.add(arg.id);
+                if (arg.apred[i] > -1) pred.o_arguments.add(arg.id);
             }
         }
         

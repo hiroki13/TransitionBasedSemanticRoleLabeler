@@ -25,9 +25,17 @@ final public class Trainer {
         this.parser = new BaseParser(new MultiClassPerceptron(RoleDict.roledict.size(), weight_length), weight_length, prune);
     }
     
-    final public void train()
+    public void train()
     {
         this.parser.train(sentencelist);
+    }
+    
+    public void setOracleState()
+    {
+        for (int i=0; i<sentencelist.size(); ++i) {
+            final Sentence sentence = sentencelist.get(i);
+            sentence.o_state = parser.getOracleState(sentence);                    
+        }
     }
 
 }

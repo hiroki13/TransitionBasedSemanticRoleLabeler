@@ -44,7 +44,7 @@ public final class Token {
     final public ArrayList<String> rightsiblingpos;    
 
     public ArrayList<Integer> arguments;
-    public int[] o_arguments;
+    final public ArrayList<Integer> o_arguments;
 
     
     public Token(final String[] line, final boolean test)
@@ -80,6 +80,7 @@ public final class Token {
         leftsiblingpos = new ArrayList<>();
         rightsiblingpos = new ArrayList<>();
         arguments = new ArrayList<>();
+        o_arguments = new ArrayList<>();
     }
 
     private int[] setApred(final String[] line, final boolean test)

@@ -20,5 +20,5 @@ public class Mian {
         Mode mode = new Mode(args);
         mode.execute();
     }
-    
+        
 }

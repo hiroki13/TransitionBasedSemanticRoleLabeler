@@ -19,7 +19,6 @@ public class Parser {
 
     public Classifier classifier;
     public FeatureExtractor feature_extracter;
-    public State state;
     public Random rnd;
     public int weight_length, restart, prune = -1;
     public float correct, total, p_total, r_total;
@@ -44,4 +43,10 @@ public class Parser {
     public void testSecond(final ArrayList<Sentence> testsentencelist) {}
 
     public void eval(final ArrayList<Sentence> testsentencelist, final ArrayList<Sentence> evalsentencelist) {}
+    
+    public State getOracleState(final Sentence sentence)
+    {
+        return null;
+    }
+
 }

@@ -5,7 +5,6 @@
  */
 package main;
 
-import argumentidentifier.ArgumentIdentifier;
 import java.io.IOException;
 import java.util.ArrayList;
 import predicatedisambiguator.PredicateDisambiguator;
@@ -72,15 +71,14 @@ public class Mode {
             if (RoleDict.core && !ac) RoleDict.add("NULL");
             
             trainsentence = Reader.read(trainfile, false);
-            if (ai) testsentence = Reader.read(testfile, true);
-            else testsentence = Reader.read(testfile, true, true);
-            evalsentence = Reader.read(evalfile);
+            testsentence = Reader.read(testfile, true);
+            evalsentence = Reader.readEval(evalfile);
             
             System.out.println(String.format("Train Sents: %d\nTest Sents: %d", trainsentence.size(), testsentence.size()));
             System.out.println("Framedict: " + FrameDict.framedict.size());
             System.out.println("Roles: " + RoleDict.roledict.size());
             
-            if (pd) predicateDisambiguation();            
+//            if (pd) predicateDisambiguation();            
             if (ac) argumentClassification();            
         }        
     }
@@ -106,6 +104,7 @@ public class Mode {
     {
         System.out.println("\nArgument Classifier Learning START");
         final Trainer trainer = new Trainer(trainsentence, weight_length, prune);
+        trainer.setOracleState();
 
         for (int i=0; i<iteration; ++i) {        
             System.out.println("\nIteration: " + (i+1));            

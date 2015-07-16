@@ -6,7 +6,6 @@
 package semanticrolelabeler;
 
 import feature.FeatureExtractor;
-import io.RoleDict;
 import io.Sentence;
 import io.Token;
 import java.util.ArrayList;
@@ -40,7 +39,8 @@ public class BaseParser extends Parser{
 
             if (i%1000 == 0 && i != 0) System.out.print(String.format("%d ", i));                                
 
-            decode(sentence);
+            final State state = decode(sentence);
+            update(state, sentence.o_state);
 
             if (i==prune) break;
                         
@@ -51,25 +51,25 @@ public class BaseParser extends Parser{
         System.out.println("\tAccuracy: " + correct/total);                        
     }
     
-    private void decode(final Sentence sentence)
+    private State decode(final Sentence sentence)
     {
-        state = new State(sentence);
+        final State state = new State(sentence);
 
-        for (int p=1; p<state.tokens.size(); ++p) {
-            final Token prd = state.tokens.get(p);
+        for (int prd_i=0; prd_i<sentence.preds.length; ++prd_i) {
+            final Token prd = state.tokens.get(prd_i);
             
-            if (!"Y".equals(prd.fillpred)) continue;
-
-            state.initiateList(p);
-            transition(prd);
-        }        
+            state.initiateList(prd.id, prd_i);
+            transition(state, prd);
+        }
+        
+        return state;
     }
     
-    public void transition(final Token prd)
+    public void transition(final State state, final Token prd)
     {
         while (state.list1.size()>0 || state.list4.size()>0) {        
             final Token arg1 = state.tokens.get(state.list1.get(state.list1.size()-1));            
-            final Token arg2 = state.tokens.get(state.list2.get(0));                
+            final Token arg2 = state.tokens.get(state.list4.get(0));                
 
             final int[] p_feature = extractFeature(state.sentence, prd);            
             final int[] a1_feature = extractFeature(state.sentence, arg1, prd);            
@@ -78,7 +78,13 @@ public class BaseParser extends Parser{
             final int[] features1 = concatinateFeatures(p_feature, a1_feature);            
             final int[] features2 = concatinateFeatures(p_feature, a2_feature);
             
-            final int best_action = bestAction(features1, features2);                        
+            final int best_action = bestAction(features1, features2);
+
+            state.actions.add(best_action);
+            
+            if (best_action < 2) state.features.add(features1);
+            else state.features.add(features2);
+
             state.transition(best_action);            
         }
     }
@@ -218,26 +224,6 @@ public class BaseParser extends Parser{
         return null;
     }
 
-    
-    public int decode(final Token pred, final int[] feature)
-    {
-        final ArrayList<Integer> possible_roles = RoleDict.rolearray;
-        int best_role = -1;
-        float best_score = -1000000.0f;
-        
-        for (int i=0; i<possible_roles.size(); ++i) {
-            final int role = possible_roles.get(i);
-            final float score = calcScore(feature, role);
-            
-            if (score > best_score) {
-                best_score = score;
-                best_role = role;
-            }
-        }
-        
-        return best_role;
-    }
-    
     public int[] extractFeature(final Sentence sentence, final Token prd)
     {
         return feature_extracter.extractFeature(sentence, prd);
@@ -266,6 +252,81 @@ public class BaseParser extends Parser{
         }
       
         return false;
-    }    
+    }
     
+    @Override
+    public State getOracleState(final Sentence sentence)
+    {
+        final State o_state = new State(sentence);
+
+        for (int prd_i=0; prd_i<o_state.sentence.preds.length; ++prd_i) {
+            final Token prd = o_state.tokens.get(sentence.preds[prd_i]);
+            
+            o_state.initiateList(prd.id, prd_i);
+            oracleTransition(o_state, prd);
+        }        
+        
+        return o_state;
+    }
+    
+    private void oracleTransition(final State o_state, final Token prd)
+    {
+        final ArrayList<Integer> o_arguments = prd.o_arguments;
+        
+        while (!o_state.list1.isEmpty() || !o_state.list4.isEmpty()) {
+            boolean l1 = true;
+            boolean l4 = true;
+            if (o_state.list1.isEmpty()) l1 = false;
+            if (o_state.list4.isEmpty()) l4 = false;
+
+            final int[] p_feature = extractFeature(o_state.sentence, prd);
+            final int[] a_feature;
+            final int action;
+
+            if (l1 && l4) {
+                final Token arg1 = o_state.tokens.get(o_state.list1.get(o_state.list1.size()-1));
+                final Token arg2 = o_state.tokens.get(o_state.list4.get(0));
+
+                if (o_arguments.contains(arg1.id)) {
+                    a_feature = extractFeature(o_state.sentence, arg1, prd);            
+                    action = 1;
+                }
+                else if (o_arguments.contains(arg2.id)) {
+                    a_feature = extractFeature(o_state.sentence, arg2, prd);            
+                    action = 3;                
+                }
+                else if (l1) {
+                    a_feature = extractFeature(o_state.sentence, arg1, prd);            
+                    action = 0;                                
+                }
+                else {
+                    a_feature = extractFeature(o_state.sentence, arg2, prd);            
+                    action = 2;                                                
+                }
+            }
+            else if (l1 && !l4) {
+                final Token arg1 = o_state.tokens.get(o_state.list1.get(o_state.list1.size()-1));
+                a_feature = extractFeature(o_state.sentence, arg1, prd);            
+
+                if (o_arguments.contains(arg1.id)) action = 1;
+                else action = 0;                                
+            }
+            else {
+                final Token arg2 = o_state.tokens.get(o_state.list4.get(0));
+                a_feature = extractFeature(o_state.sentence, arg2, prd);            
+
+                if (o_arguments.contains(arg2.id)) action = 3;
+                else action = 2;
+            }
+            
+            o_state.features.add(concatinateFeatures(p_feature, a_feature));            
+            o_state.actions.add(action);                            
+            o_state.transition(action);            
+        }
+    }
+    
+    public void update(final State state, final State o_state)
+    {
+        
+    }
 }
